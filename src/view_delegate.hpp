@@ -1,3 +1,6 @@
+#ifndef VIEW_DELEGATE_HPP
+#define VIEW_DELEGATE_HPP
+
 #include "renderer.hpp"
 
 class ViewDelegate : public MTK::ViewDelegate
@@ -10,3 +13,5 @@ class ViewDelegate : public MTK::ViewDelegate
     private:
         Renderer* _pRenderer;
 };
+
+#endif

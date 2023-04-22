@@ -9,10 +9,14 @@ set(CMAKE_CXX_FLAGS "-Wall -fsanitize=address")
 
 add_executable(TicTacToe
 src/main.cpp
-src/app_delegate.cpp
+src/app_delegate.mm
 src/view_delegate.cpp
-src/renderer.cpp
+src/renderer.mm
+src/controller.mm
 )
+
+set(PLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist")
+set_target_properties(TicTacToe PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${PLIST_FILE}")
 
 target_include_directories(TicTacToe PRIVATE dependencies/include/metal-cpp)
 target_include_directories(TicTacToe PRIVATE dependencies/include/metal-cpp-extensions)
@@ -23,4 +27,5 @@ target_link_libraries(TicTacToe
 "-framework CoreGraphics"
 "-framework MetalKit"
 "-framework QuartzCore"
+"-framework GameController"
 )

@@ -1,4 +1,8 @@
 #include "app_delegate.hpp"
+#import <Foundation/Foundation.h>
+#import <Cocoa/Cocoa.h>
+
+extern float mvf;
 
 AppDelegate::~AppDelegate()
 {
@@ -63,6 +67,10 @@ void AppDelegate::applicationWillFinishLaunching( NS::Notification* pNotificatio
 
 void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification )
 {
+    [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^(NSEvent *event) {
+        onKeyPressCallback(event.keyCode);
+    }];
+
     _pDevice = MTL::CreateSystemDefaultDevice();
     _pViewDelegate = new ViewDelegate( _pDevice );
 
@@ -93,4 +101,13 @@ void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification
 bool AppDelegate::applicationShouldTerminateAfterLastWindowClosed( NS::Application* pSender )
 {
     return true;
+}
+
+void onKeyPressCallback(unsigned short keycode)
+{
+    __builtin_printf("Key event detected. keycode: %i", keycode);
+    if (keycode == 40)
+        mvf -= 0.2f;
+    if (keycode == 38)
+        mvf += 0.2f;
 }

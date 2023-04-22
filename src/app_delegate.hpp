@@ -1,3 +1,6 @@
+#ifndef APP_DELEGATE_HPP
+#define APP_DELEGATE_HPP
+
 #include "view_delegate.hpp"
 
 class AppDelegate : public NS::ApplicationDelegate
@@ -17,3 +20,7 @@ class AppDelegate : public NS::ApplicationDelegate
         MTL::Device* _pDevice;
         ViewDelegate* _pViewDelegate;
 };
+
+void onKeyPressCallback(unsigned short keycode);
+
+#endif

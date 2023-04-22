@@ -1,3 +1,6 @@
+#ifndef RENDERER_HPP
+#define RENDERER_HPP
+
 #include <Metal/Metal.hpp>
 #include <MetalKit/MetalKit.hpp>
 
@@ -30,3 +33,5 @@ class Renderer
 
         std::string* _pShaderSrc;
 };
+
+#endif

@@ -4,6 +4,10 @@
 #include <sstream>
 #include <memory>
 
+#import "controller.hpp"
+
+extern float mvf;
+
 Renderer::Renderer( MTL::Device* pDevice )
     : _pDevice( pDevice->retain() )
     , _pCmdQ( _pDevice->newCommandQueue() )
@@ -114,8 +118,8 @@ void Renderer::build_buffers()
 
     float3 points[] = 
     {
-        { -1.f,  0.f,  0.f },
-        {  1.f,  0.f,  0.f },
+        { -1.f + mvf,  0.f,  0.f },
+        {  1.f + mvf,  0.f,  0.f },
         {  0.f, -1.f,  0.f },
         {  0.f,  1.f,  0.f }
     };
@@ -178,6 +182,13 @@ void Renderer::build_buffers()
 void Renderer::draw( MTK::View* pView )
 {
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
+
+    if ([[InputController controller].keysPressed containsObject:@(GCKeyCodeKeyW)])
+        mvf += 0.2f;
+    if ([[InputController controller].keysPressed containsObject:@(GCKeyCodeKeyS)])
+        mvf -= 0.2f;
+
+    __builtin_printf("%f \n", mvf);
 
     MTL::CommandBuffer* pCmdBuff = _pCmdQ->commandBuffer();
 

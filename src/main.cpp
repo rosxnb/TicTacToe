@@ -1,9 +1,13 @@
+#include <cstdio>
 #define NS_PRIVATE_IMPLEMENTATION
 #define MTL_PRIVATE_IMPLEMENTATION
 #define MTK_PRIVATE_IMPLEMENTATION
 #define CA_PRIVATE_IMPLEMENTATION
 
 #include "app_delegate.hpp"
+#include <iostream>
+
+float mvf = 0;
 
 int main()
 {
@@ -15,6 +19,5 @@ int main()
     pApp->run();
 
     pPool->release();
-
     return 0;
 }
