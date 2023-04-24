@@ -9,10 +9,12 @@ set(CMAKE_CXX_FLAGS "-Wall -fsanitize=address")
 
 add_executable(TicTacToe
 src/main.cpp
-src/app_delegate.mm
+src/app_delegate.cpp
 src/view_delegate.cpp
-src/renderer.mm
-src/controller.mm
+src/renderer.cpp
+src/game_controller.m
+src/keys_code.mm
+src/utility.cpp
 )
 
 set(PLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist")

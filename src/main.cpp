@@ -7,8 +7,6 @@
 #include "app_delegate.hpp"
 #include <iostream>
 
-float mvf = 0;
-
 int main()
 {
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();

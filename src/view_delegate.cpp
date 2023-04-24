@@ -1,8 +1,11 @@
 #include "view_delegate.hpp"
+#include "utility.hpp"
 
 ViewDelegate::ViewDelegate(MTL::Device* pDevice)
-    : _pRenderer(new Renderer(pDevice))
-{ }
+{
+    std::unique_ptr<std::string> pShaderSrc = Utility::read_file("shader/program.metal");
+    _pRenderer = new Renderer( pDevice, std::move(pShaderSrc) );
+}
 
 ViewDelegate::~ViewDelegate()
 { delete _pRenderer; }

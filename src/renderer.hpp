@@ -3,11 +3,12 @@
 
 #include <Metal/Metal.hpp>
 #include <MetalKit/MetalKit.hpp>
+#include <memory>
 
 class Renderer
 {
     public:
-        Renderer( MTL::Device* pDevice );
+        Renderer( MTL::Device* pDevice, std::unique_ptr<std::string> pShaderSrc );
         ~Renderer();
 
         void draw( MTK::View* pView );
@@ -17,21 +18,12 @@ class Renderer
         std::string* read_source( const char* filepath ) const;
 
     private:
-        constexpr static int maxFrames = 3;
-
         MTL::Device* _pDevice;
         MTL::CommandQueue* _pCmdQ;
         MTL::RenderPipelineState* _pRps;
         MTL::Library* _pLib;
-        MTL::Buffer* _pArgBuff;
-        MTL::Buffer* _pPositions;
-        MTL::Buffer* _pColors;
-        MTL::Buffer* _pIndices;
-        MTL::Buffer* _pLinePoints;
-        MTL::Buffer* _pLineColors;
-        MTL::Buffer* _pLineArgs;
 
-        std::string* _pShaderSrc;
+        std::unique_ptr<std::string> _pShaderSrc;
 };
 
 #endif

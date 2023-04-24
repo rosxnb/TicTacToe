@@ -21,6 +21,4 @@ class AppDelegate : public NS::ApplicationDelegate
         ViewDelegate* _pViewDelegate;
 };
 
-void onKeyPressCallback(unsigned short keycode);
-
 #endif
