@@ -13,14 +13,15 @@ struct VertexData
     device float3* color [[ id(1) ]];
 };
 
-vertex 
-V2F main_vertex( device const VertexData* vertexData [[ buffer(0) ]],
-                 uint const vertexId [[ vertex_id ]] )
+vertex
+V2F main_vertex( device const float3* vertices [[buffer(0)]],
+                 device const float3* colors [[buffer(1)]],
+                 uint const id [[vertex_id]] )
 {
-    V2F out;
-    out.position = float4( vertexData->position[ vertexId ], 1.f );
-    out.color = half3( vertexData->color[ vertexId ] );
-    return out;
+    V2F retval;
+    retval.position = float4( vertices[id], 1.f );
+    retval.color = half3( colors[0] );
+    return retval;
 }
 
 fragment
