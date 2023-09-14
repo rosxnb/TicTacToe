@@ -12,11 +12,11 @@ Renderer::Renderer( MTL::Device* pDevice, std::unique_ptr<std::string> pShaderSr
 
 Renderer::~Renderer()
 {
-    p_vertices->release();
-    p_colors->release();
-    p_indices->release();
-    p_line1->release();
-    p_lineColor->release();
+    p_boardVertices->release();
+    p_boradColors->release();
+    p_boardIndices->release();
+    p_lineColors->release();
+    p_lineVertices->release();
 
     p_shaderLibrary->release();
     p_RPS->release();
@@ -60,56 +60,69 @@ void Renderer::build_shaders()
 
 void Renderer::build_buffers()
 {
-    // board vertices
-    float len = 0.8f;
-    const simd::float3 vertices_board[] = 
+    float len = 0.92f;
+    const simd::float3 boardColors = { 0.50f, 0.50f, 0.50f };
+    const simd::float3 boardVertices[] = 
     {
         {  len,  len,  0.0f }, // 1st quadrant
         { -len,  len,  0.0f }, // 2nd quadrant
         { -len, -len,  0.0f }, // 3rd quadrant
         {  len, -len,  0.0f }, // 4th quadrant
     };
-
-    // const simd::float3 colors = { 1.0f, 0.0f, 0.0f };
-    const simd::float3 colors[] = {
-        { 1.0f, 0.0f, 0.0f },
-        { 1.0f, 0.0f, 0.0f },
-        { 1.0f, 0.0f, 0.0f },
-    };
-
-    const uint16_t indices[] = {
+    const uint16_t boardIndices[] = {
         0, 1, 2,
         2, 3, 0
     };
 
-    p_vertices = p_device->newBuffer( sizeof(vertices_board), MTL::ResourceStorageModeManaged );
-    p_colors = p_device->newBuffer( sizeof(colors), MTL::ResourceStorageModeManaged );
-    p_indices = p_device->newBuffer( sizeof(indices), MTL::ResourceStorageModeManaged );
+    p_boardVertices = p_device->newBuffer( sizeof(boardVertices), MTL::ResourceStorageModeManaged );
+    p_boradColors = p_device->newBuffer( sizeof(boardColors), MTL::ResourceStorageModeManaged );
+    p_boardIndices = p_device->newBuffer( sizeof(boardIndices), MTL::ResourceStorageModeManaged );
 
-    memcpy( p_vertices->contents(), &vertices_board, sizeof(vertices_board) );
-    memcpy( p_colors->contents(), &colors, sizeof(colors) );
-    memcpy( p_indices->contents(), &indices, sizeof(indices) );
+    memcpy( p_boardVertices->contents(), &boardVertices, sizeof(boardVertices) );
+    memcpy( p_boradColors->contents(), &boardColors, sizeof(boardColors) );
+    memcpy( p_boardIndices->contents(), &boardIndices, sizeof(boardIndices) );
 
-    p_vertices->didModifyRange( NS::Range::Make(0, p_vertices->length()) );
-    p_colors->didModifyRange( NS::Range::Make(0, p_colors->length()) );
-    p_indices->didModifyRange( NS::Range::Make(0, p_indices->length()) );
+    p_boardVertices->didModifyRange( NS::Range::Make(0, p_boardVertices->length()) );
+    p_boradColors->didModifyRange( NS::Range::Make(0, p_boradColors->length()) );
+    p_boardIndices->didModifyRange( NS::Range::Make(0, p_boardIndices->length()) );
 
-    // ----------------------------------------------------------------------------------------------------------
 
-    const simd::float3 lineColors = { 0.0f, 1.0f, 0.0f };
-    Point2D p1 = { -0.4f,  0.5f };
-    Point2D p2 = { -0.4f, -0.5f };
+    // ------------------------ Vertical Lines ------------------------------------------------------------------
+    const simd::float3 lineColors = { 0.01f, 0.01f, 0.01f };
     float width = 0.04f;
-    std::vector<simd::float3> line = generate_line_vertices( p1, p2, width );
+    std::vector<simd::float3> lineVertices;
 
-    p_line1 = p_device->newBuffer( line.size() * sizeof(simd::float3), MTL::ResourceStorageModeManaged );
-    p_lineColor = p_device->newBuffer( sizeof(lineColors), MTL::ResourceStorageModeManaged );
+    Point2D p1 = { -0.33f,  len };
+    Point2D p2 = { -0.33f, -len };
+    std::vector<simd::float3> verticalLineA = generate_line_vertices( p1, p2, width );
+    lineVertices.insert( lineVertices.end(), verticalLineA.begin(), verticalLineA.end() );
 
-    memcpy( p_line1->contents(), line.data(), line.size() * sizeof(simd::float3) );
-    memcpy( p_lineColor->contents(), &lineColors, sizeof(lineColors) );
+    p1 = { 0.33f,  len };
+    p2 = { 0.33f, -len };
+    std::vector<simd::float3> verticalLineB = generate_line_vertices( p1, p2, width );
+    lineVertices.insert( lineVertices.end(), verticalLineB.begin(), verticalLineB.end() );
 
-    p_line1->didModifyRange( NS::Range::Make(0, p_line1->length()) );
-    p_lineColor->didModifyRange( NS::Range::Make(0, p_lineColor->length()) );
+
+    // ------------------------ Horizontal Lines ------------------------------------------------------------------
+    p1 = {  len, -0.33f };
+    p2 = { -len, -0.33f };
+    std::vector<simd::float3> horizontalLineA = generate_line_vertices( p1, p2, width );
+    lineVertices.insert( lineVertices.end(), horizontalLineA.begin(), horizontalLineA.end() );
+
+    p1 = {  len, 0.33f };
+    p2 = { -len, 0.33f };
+    std::vector<simd::float3> horizontalLineB = generate_line_vertices( p1, p2, width );
+    lineVertices.insert( lineVertices.end(), horizontalLineB.begin(), horizontalLineB.end() );
+
+
+    p_lineColors = p_device->newBuffer( sizeof(lineColors), MTL::ResourceStorageModeManaged );
+    p_lineVertices = p_device->newBuffer( lineVertices.size() * sizeof(simd::float3), MTL::ResourceStorageModeManaged );
+
+    memcpy( p_lineColors->contents(), &lineColors, sizeof(lineColors) );
+    memcpy( p_lineVertices->contents(), lineVertices.data(), lineVertices.size() * sizeof(simd::float3) );
+
+    p_lineColors->didModifyRange( NS::Range::Make(0, p_lineColors->length()) );
+    p_lineVertices->didModifyRange( NS::Range::Make(0, p_lineVertices->length()) );
 }
 
 void Renderer::process_keybord_inputs()
@@ -155,57 +168,38 @@ std::vector<simd::float3> Renderer::generate_line_vertices(Point2D p1, Point2D p
 
 void Renderer::draw( MTK::View* pView )
 {
+    NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
     process_keybord_inputs();
 
-    { // draw the square
-        NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
-        MTL::CommandBuffer* pCmdBuf = p_cmdQ->commandBuffer();
+    MTL::CommandBuffer* pCmdBuf = p_cmdQ->commandBuffer();
+    MTL::RenderPassDescriptor* pRPD = pView->currentRenderPassDescriptor();
+    MTL::RenderCommandEncoder* pEnc = pCmdBuf->renderCommandEncoder( pRPD );
 
-        MTL::RenderPassDescriptor* pRPD = pView->currentRenderPassDescriptor();
-        MTL::RenderCommandEncoder* pEnc = pCmdBuf->renderCommandEncoder( pRPD );
+    // ----------------------- Game Board -----------------------------------------------------
+    pEnc->setRenderPipelineState( p_RPS );
+    pEnc->setVertexBuffer( p_boardVertices, 0, 0 );
+    pEnc->setVertexBuffer( p_boradColors, 0, 1 );
+    pEnc->drawIndexedPrimitives(
+        MTL::PrimitiveType::PrimitiveTypeTriangle,
+        NS::UInteger(6), // index count
+        MTL::IndexType::IndexTypeUInt16, // index type
+        p_boardIndices, // indices data
+        NS::UInteger(0) // index buffer offset
+    );
 
-        pEnc->setRenderPipelineState( p_RPS );
-        pEnc->setVertexBuffer( p_vertices, 0, 0 );
-        pEnc->setVertexBuffer( p_colors, 0, 1 );
+    // -------------------------- Tiles Seperation Lines ---------------------------------------
+    pEnc->setRenderPipelineState( p_RPS );
+    pEnc->setVertexBuffer( p_lineVertices, 0, 0 );
+    pEnc->setVertexBuffer( p_lineColors, 0, 1 );
+    pEnc->drawPrimitives(
+        MTL::PrimitiveType::PrimitiveTypeTriangle,
+        NS::UInteger(0), // vertex start
+        NS::UInteger(24)  // vertex count
+    );
 
-        //
-        // void drawIndexedPrimitives( PrimitiveType primitiveType, NS::UInteger indexCount, IndexType indexType,
-        //                             const class Buffer* pIndexBuffer, NS::UInteger indexBufferOffset );
-        pEnc->drawIndexedPrimitives(
-            MTL::PrimitiveType::PrimitiveTypeTriangle,
-            NS::UInteger(6),
-            MTL::IndexType::IndexTypeUInt16,
-            p_indices,
-            NS::UInteger(0)
-        );
 
-        // pEnc->endEncoding();
-        // pCmdBuf->presentDrawable( pView->currentDrawable() );
-        // pCmdBuf->commit();
-        // pPool->release();
-    // }
-    //
-    //
-    // { // Draw the line on top
-    //     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
-    //     MTL::CommandBuffer* pCmdBuf = p_cmdQ->commandBuffer();
-    //
-    //     MTL::RenderPassDescriptor* pRPD = pView->currentRenderPassDescriptor();
-    //     MTL::RenderCommandEncoder* pEnc = pCmdBuf->renderCommandEncoder( pRPD );
-
-        pEnc->setRenderPipelineState( p_RPS );
-        pEnc->setVertexBuffer( p_line1, 0, 0 );
-        pEnc->setVertexBuffer( p_lineColor, 0, 1 );
-
-        pEnc->drawPrimitives(
-            MTL::PrimitiveType::PrimitiveTypeTriangle,
-            NS::UInteger(0),
-            NS::UInteger(6)
-        );
-
-        pEnc->endEncoding();
-        pCmdBuf->presentDrawable( pView->currentDrawable() );
-        pCmdBuf->commit();
-        pPool->release();
-    }
+    pEnc->endEncoding();
+    pCmdBuf->presentDrawable( pView->currentDrawable() );
+    pCmdBuf->commit();
+    pPool->release();
 }

@@ -30,11 +30,12 @@ class Renderer
         MTL::RenderPipelineState* p_RPS;
         MTL::Library* p_shaderLibrary;
 
-        MTL::Buffer* p_vertices;
-        MTL::Buffer* p_colors;
-        MTL::Buffer* p_indices;
-        MTL::Buffer* p_line1;
-        MTL::Buffer* p_lineColor;
+        MTL::Buffer* p_boardVertices;
+        MTL::Buffer* p_boradColors;
+        MTL::Buffer* p_boardIndices;
+
+        MTL::Buffer* p_lineColors;
+        MTL::Buffer* p_lineVertices;
 
         std::unique_ptr<std::string> p_shaderSrc;
 };
