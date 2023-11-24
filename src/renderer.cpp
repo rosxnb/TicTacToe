@@ -1,10 +1,10 @@
 #include "renderer.hpp"
+#include "utility.hpp"
 #include "keys_code.h"
 
-Renderer::Renderer( MTL::Device* pDevice, std::unique_ptr<std::string> pShaderSrc )
+Renderer::Renderer( MTL::Device* pDevice )
     : p_device( pDevice->retain() )
     , p_cmdQ( p_device->newCommandQueue() )
-    , p_shaderSrc( std::move(pShaderSrc) )
 { 
     build_shaders();
     build_buffers();
@@ -28,8 +28,10 @@ void Renderer::build_shaders()
 {
     using NS::StringEncoding::UTF8StringEncoding;
 
+    m_shaderSrc = Utility::read_file("shader/program.metal");
+
     NS::Error* pError {nullptr};
-    p_shaderLibrary = p_device->newLibrary( NS::String::string(p_shaderSrc->data(), UTF8StringEncoding), nullptr, &pError );
+    p_shaderLibrary = p_device->newLibrary( NS::String::string(m_shaderSrc.data(), UTF8StringEncoding), nullptr, &pError );
     if ( !p_shaderLibrary )
     {
         __builtin_printf("Library creation from shader source failed. \n");

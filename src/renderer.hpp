@@ -9,10 +9,13 @@
 #include "utility.hpp"
 #include "simd/simd.h"
 
+constexpr float window_width  = 1000.f;
+constexpr float window_height = 1000.f;
+
 class Renderer
 {
     public:
-        Renderer( MTL::Device* pDevice, std::unique_ptr<std::string> pShaderSrc );
+        Renderer( MTL::Device* pDevice );
         ~Renderer();
 
         void build_shaders();
@@ -22,7 +25,7 @@ class Renderer
         void draw( MTK::View* pView );
         std::vector<simd::float3> generate_line_vertices(Point2D p1, Point2D p2, float width);
 
-        std::string* read_source( const char* filepath ) const;
+        std::string read_source( const char* filepath ) const;
 
     private:
         MTL::Device* p_device;
@@ -37,7 +40,7 @@ class Renderer
         MTL::Buffer* p_lineColors;
         MTL::Buffer* p_lineVertices;
 
-        std::unique_ptr<std::string> p_shaderSrc;
+        std::string m_shaderSrc;
 };
 
 #endif

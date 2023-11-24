@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.27)
 project(TicTacToe VERSION 0.0.1)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -15,6 +15,7 @@ src/renderer.cpp
 src/game_controller.m
 src/keys_code.mm
 src/utility.cpp
+src/math.cpp
 )
 
 set(PLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist")

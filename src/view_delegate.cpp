@@ -3,8 +3,7 @@
 
 ViewDelegate::ViewDelegate(MTL::Device* pDevice)
 {
-    std::unique_ptr<std::string> pShaderSrc = Utility::read_file("shader/program.metal");
-    _pRenderer = new Renderer( pDevice, std::move(pShaderSrc) );
+    _pRenderer = new Renderer( pDevice );
 }
 
 ViewDelegate::~ViewDelegate()

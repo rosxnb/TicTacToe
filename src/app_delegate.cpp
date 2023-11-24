@@ -67,8 +67,8 @@ void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification
     _pViewDelegate = new ViewDelegate( _pDevice );
 
     CGRect frame = (CGRect){
-        {260.f, 150.f},
-        {1200.f, 860.f}
+        {260.f, 150.f}, // origin
+        {window_width, window_height} // width, height
     };
 
     _pView = MTK::View::alloc()->init(frame, _pDevice);
@@ -78,7 +78,7 @@ void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification
 
     _pWindow = NS::Window::alloc()->init(
             frame,
-            NS::WindowStyleMaskClosable | NS::WindowStyleMaskTitled | NS::WindowStyleMaskResizable,
+            NS::WindowStyleMaskClosable | NS::WindowStyleMaskTitled /* | NS::WindowStyleMaskResizable */,
             NS::BackingStoreBuffered,
             false );
 

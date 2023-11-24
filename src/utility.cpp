@@ -2,9 +2,9 @@
 #include <fstream>
 #include <sstream>
 
-std::unique_ptr<std::string> Utility::read_file( std::string_view fileLocation )
+std::string Utility::read_file( std::string_view fileLocation )
 {
-    std::unique_ptr<std::string> buffer = std::make_unique<std::string>();
+    std::string buffer;
 
     std::ifstream fileHandler;
     fileHandler.exceptions( std::ifstream::badbit | std::ifstream::failbit );
@@ -14,7 +14,7 @@ std::unique_ptr<std::string> Utility::read_file( std::string_view fileLocation )
         fileHandler.open( fileLocation );
         std::stringstream sstream;
         sstream << fileHandler.rdbuf();
-        buffer->assign( sstream.str() );
+        buffer.assign( sstream.str() );
     }
     catch (std::ifstream::failure err)
     {
