@@ -1,31 +1,46 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct V2F
+struct v2f
 {
     float4 position [[ position ]];
-    half3 color;
 };
 
 struct VertexData
 {
-    device float3* position [[ id(0) ]];
-    device float3* color [[ id(1) ]];
+    simd::float3 position;
+};
+
+struct WorldData
+{
+    simd::float4x4 proj;
+};
+
+struct InstanceData
+{
+    simd::float4x4 scale;
+    simd::float4x4 translate;
 };
 
 vertex
-V2F main_vertex( device const float3* vertices [[buffer(0)]],
-                 device const float3* colors [[buffer(1)]],
-                 uint const id [[vertex_id]] )
+v2f main_vertex( device const VertexData* vertexData [[buffer(0)]],
+                 device const InstanceData* instanceData [[buffer(1)]],
+                 device const WorldData& worldData [[buffer(2)]],
+                 uint const vertexId [[vertex_id]],
+                 uint const instanceId [[instance_id]] )
 {
-    V2F retval;
-    retval.position = float4( vertices[id], 1.f );
-    retval.color = half3( colors[0] );
-    return retval;
+    float4 pos = float4( vertexData[vertexId].position, 1.f );
+
+    pos = instanceData[instanceId].translate * instanceData[instanceId].scale * pos;
+    pos = worldData.proj * pos;
+
+    v2f output;
+    output.position = pos;
+    return output;
 }
 
 fragment
-half4 main_fragment( V2F data [[ stage_in ]] )
+half4 main_fragment( v2f in [[ stage_in ]] )
 {
-    return half4( data.color, 1.f );
+    return half4( 1.f, 0.f, 0.f, 0.f );
 }

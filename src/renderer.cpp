@@ -1,26 +1,31 @@
 #include "renderer.hpp"
+#include "math.hpp"
 #include "utility.hpp"
 #include "keys_code.h"
 
 Renderer::Renderer( MTL::Device* pDevice )
     : p_device( pDevice->retain() )
-    , p_cmdQ( p_device->newCommandQueue() )
+    , p_cmdQueue( p_device->newCommandQueue() )
 { 
     build_shaders();
     build_buffers();
+
+    m_semaphore = dispatch_semaphore_create( Renderer::kMaxFrames );
 }
 
 Renderer::~Renderer()
 {
-    p_boardVertices->release();
-    p_boradColors->release();
-    p_boardIndices->release();
-    p_lineColors->release();
-    p_lineVertices->release();
+    p_vertices->release();
+    p_indices->release();
+    p_projection->release();
+    for (size_t i = 0; i < Renderer::kMaxFrames; ++i)
+    {
+        p_instances[i]->release();
+    }
 
     p_shaderLibrary->release();
-    p_RPS->release();
-    p_cmdQ->release();
+    p_renderPipeline->release();
+    p_cmdQueue->release();
     p_device->release();
 }
 
@@ -39,16 +44,16 @@ void Renderer::build_shaders()
         assert( false );
     }
 
-    MTL::Function* fnVertex     = p_shaderLibrary->newFunction( NS::String::string("main_vertex", UTF8StringEncoding) );
-    MTL::Function* fnFragment   = p_shaderLibrary->newFunction( NS::String::string("main_fragment", UTF8StringEncoding) );
+    MTL::Function* fnVertex             = p_shaderLibrary->newFunction( NS::String::string("main_vertex", UTF8StringEncoding) );
+    MTL::Function* fnFragment           = p_shaderLibrary->newFunction( NS::String::string("main_fragment", UTF8StringEncoding) );
     MTL::RenderPipelineDescriptor* pRpd = MTL::RenderPipelineDescriptor::alloc()->init();
 
     pRpd->setVertexFunction( fnVertex );
     pRpd->setFragmentFunction( fnFragment );
     pRpd->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
 
-    p_RPS = p_device->newRenderPipelineState( pRpd, &pError );
-    if ( !p_RPS )
+    p_renderPipeline = p_device->newRenderPipelineState( pRpd, &pError );
+    if ( !p_renderPipeline )
     {
         __builtin_printf("RenderPipelineState creation failed. \n");
         __builtin_printf("%s \n\n", pError->localizedDescription()->utf8String());
@@ -62,69 +67,102 @@ void Renderer::build_shaders()
 
 void Renderer::build_buffers()
 {
-    float len = 0.92f;
-    const simd::float3 boardColors = { 0.50f, 0.50f, 0.50f };
-    const simd::float3 boardVertices[] = 
-    {
-        {  len,  len,  0.0f }, // 1st quadrant
-        { -len,  len,  0.0f }, // 2nd quadrant
-        { -len, -len,  0.0f }, // 3rd quadrant
-        {  len, -len,  0.0f }, // 4th quadrant
+    simd::float3 vertices[] = {
+        {       0.f,             window_height , 0.f }, // top left
+        { tileWidth,             window_height , 0.f }, // top right
+        { tileWidth, window_height - tileHeight, 0.f }, // bottom right
+        {       0.f, window_height - tileHeight, 0.f }, // bottom left
     };
-    const uint16_t boardIndices[] = {
+
+    uint16_t indices[] = {
         0, 1, 2,
-        2, 3, 0
+        2, 3, 0,
     };
 
-    p_boardVertices = p_device->newBuffer( sizeof(boardVertices), MTL::ResourceStorageModeManaged );
-    p_boradColors = p_device->newBuffer( sizeof(boardColors), MTL::ResourceStorageModeManaged );
-    p_boardIndices = p_device->newBuffer( sizeof(boardIndices), MTL::ResourceStorageModeManaged );
+    size_t verticesSize = sizeof(vertices);
+    size_t indicesSize  = 6 * sizeof(uint16_t);
+    p_vertices = p_device->newBuffer( verticesSize, MTL::ResourceStorageModeManaged );
+    p_indices  = p_device->newBuffer( indicesSize, MTL::ResourceStorageModeManaged );
 
-    memcpy( p_boardVertices->contents(), &boardVertices, sizeof(boardVertices) );
-    memcpy( p_boradColors->contents(), &boardColors, sizeof(boardColors) );
-    memcpy( p_boardIndices->contents(), &boardIndices, sizeof(boardIndices) );
+    memcpy( p_vertices->contents(), vertices, verticesSize );
+    memcpy( p_indices->contents(), indices, indicesSize );
 
-    p_boardVertices->didModifyRange( NS::Range::Make(0, p_boardVertices->length()) );
-    p_boradColors->didModifyRange( NS::Range::Make(0, p_boradColors->length()) );
-    p_boardIndices->didModifyRange( NS::Range::Make(0, p_boardIndices->length()) );
+    p_vertices->didModifyRange( NS::Range::Make(0, p_vertices->length()) );
+    p_indices->didModifyRange( NS::Range::Make(0, p_indices->length()) );
 
+    // allocate space for instances data
+    for (size_t i = 0; i < Renderer::kMaxFrames; ++i)
+    {
+        p_instances[i] = p_device->newBuffer( Renderer::kNumInstances * sizeof(shader_types::InstanceData), MTL::ResourceStorageModeManaged );
+    }
 
-    // ------------------------ Vertical Lines ------------------------------------------------------------------
-    const simd::float3 lineColors = { 0.01f, 0.01f, 0.01f };
-    float width = 0.04f;
-    std::vector<simd::float3> lineVertices;
+    // prepare projection matrix
+    simd::float4x4 orthoProj = math::make_orthographic(0.f, window_width, 0.f, window_height, -1.f, 1.f);
+    p_projection = p_device->newBuffer( sizeof(orthoProj), MTL::ResourceStorageModeManaged );
+    memcpy( p_projection->contents(), &orthoProj, sizeof(orthoProj) );
+    p_projection->didModifyRange( NS::Range::Make(0, p_projection->length()) );
+}
 
-    Point2D p1 = { -0.33f,  len };
-    Point2D p2 = { -0.33f, -len };
-    std::vector<simd::float3> verticalLineA = generate_line_vertices( p1, p2, width );
-    lineVertices.insert( lineVertices.end(), verticalLineA.begin(), verticalLineA.end() );
+void Renderer::draw( MTK::View* pView )
+{
+    process_keybord_inputs();
 
-    p1 = { 0.33f,  len };
-    p2 = { 0.33f, -len };
-    std::vector<simd::float3> verticalLineB = generate_line_vertices( p1, p2, width );
-    lineVertices.insert( lineVertices.end(), verticalLineB.begin(), verticalLineB.end() );
+    NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
 
+    m_frame = (m_frame + 1) % Renderer::kMaxFrames;
+    MTL::Buffer* pCurInstanceBuffer = p_instances[m_frame];
 
-    // ------------------------ Horizontal Lines ------------------------------------------------------------------
-    p1 = {  len, -0.33f };
-    p2 = { -len, -0.33f };
-    std::vector<simd::float3> horizontalLineA = generate_line_vertices( p1, p2, width );
-    lineVertices.insert( lineVertices.end(), horizontalLineA.begin(), horizontalLineA.end() );
+    dispatch_semaphore_wait( m_semaphore, DISPATCH_TIME_FOREVER );
 
-    p1 = {  len, 0.33f };
-    p2 = { -len, 0.33f };
-    std::vector<simd::float3> horizontalLineB = generate_line_vertices( p1, p2, width );
-    lineVertices.insert( lineVertices.end(), horizontalLineB.begin(), horizontalLineB.end() );
+    MTL::CommandBuffer* pCmdBuffer = p_cmdQueue->commandBuffer();
 
+    pCmdBuffer->addCompletedHandler( [this] (MTL::CommandBuffer* pCmdBuf) {
+        dispatch_semaphore_signal( this->m_semaphore );
+    } );
 
-    p_lineColors = p_device->newBuffer( sizeof(lineColors), MTL::ResourceStorageModeManaged );
-    p_lineVertices = p_device->newBuffer( lineVertices.size() * sizeof(simd::float3), MTL::ResourceStorageModeManaged );
+    
+    uint xTileNo = 1;
+    uint yTileNo = 1;
+    auto curInstanceData = reinterpret_cast< shader_types::InstanceData * >( pCurInstanceBuffer->contents() );
 
-    memcpy( p_lineColors->contents(), &lineColors, sizeof(lineColors) );
-    memcpy( p_lineVertices->contents(), lineVertices.data(), lineVertices.size() * sizeof(simd::float3) );
+    for (size_t i = 0; i < Renderer::kNumInstances; ++i)
+    {
+        if ( xTileNo > 3 )
+        {
+            xTileNo = 1;
+            yTileNo++;
+        }
 
-    p_lineColors->didModifyRange( NS::Range::Make(0, p_lineColors->length()) );
-    p_lineVertices->didModifyRange( NS::Range::Make(0, p_lineVertices->length()) );
+        simd::float3 translateVec { get_x_translate_value(xTileNo), -get_y_translate_value(yTileNo) };
+        curInstanceData[ i ].translate = math::make_translate( translateVec );
+
+        curInstanceData[ i ].scale = math::make_scale({1.f, 1.f, 1.f});
+
+        xTileNo++;
+    }
+
+    pCurInstanceBuffer->didModifyRange( NS::Range::Make(0, pCurInstanceBuffer->length()) );
+
+    MTL::RenderPassDescriptor* pRPD = pView->currentRenderPassDescriptor();
+    MTL::RenderCommandEncoder* pCmdEncoder = pCmdBuffer->renderCommandEncoder( pRPD );
+
+    pCmdEncoder->setRenderPipelineState( p_renderPipeline );
+    pCmdEncoder->setVertexBuffer( p_vertices, 0, 0 );
+    pCmdEncoder->setVertexBuffer( pCurInstanceBuffer, 0, 1 );
+    pCmdEncoder->setVertexBuffer( p_projection, 0, 2 );
+
+    // void drawIndexedPrimitives( PrimitiveType primitiveType, NS::UInteger indexCount, IndexType indexType,
+    //                             const class Buffer* pIndexBuffer, NS::UInteger indexBufferOffset, NS::UInteger instanceCount );
+    pCmdEncoder->drawIndexedPrimitives( MTL::PrimitiveType::PrimitiveTypeTriangle,
+                                        6, MTL::IndexType::IndexTypeUInt16,
+                                        p_indices,
+                                        0,
+                                        kNumInstances );
+
+    pCmdEncoder->endEncoding();
+    pCmdBuffer->presentDrawable( pView->currentDrawable() );
+    pCmdBuffer->commit();
+    pPool->release();
 }
 
 void Renderer::process_keybord_inputs()
@@ -137,71 +175,4 @@ void Renderer::process_keybord_inputs()
         __builtin_printf("Key D \n");
     if (checkKeyPress( KeysCode::A ))
         __builtin_printf("Key A \n");
-}
-
-std::vector<simd::float3> Renderer::generate_line_vertices(Point2D p1, Point2D p2, float width)
-{
-    std::vector<simd::float3> buffer;
-    if (p1.x - p2.x == 0) // vertical line
-    {
-        buffer.push_back( simd::float3{ p1.x,         p1.y, 0.f } );
-        buffer.push_back( simd::float3{ p2.x,         p2.y, 0.f } );
-        buffer.push_back( simd::float3{ p1.x + width, p1.y, 0.f } );
-        buffer.push_back( simd::float3{ p2.x,         p2.y, 0.f } );
-        buffer.push_back( simd::float3{ p2.x + width, p2.y, 0.f } );
-        buffer.push_back( simd::float3{ p1.x + width, p1.y, 0.f } );
-    }
-    else if (p1.y - p2.y == 0) // horizontal line
-    {
-        buffer.push_back( simd::float3{ p1.x,         p1.y, 0.f } );
-        buffer.push_back( simd::float3{ p2.x,         p2.y, 0.f } );
-        buffer.push_back( simd::float3{ p1.x, p1.y + width, 0.f } );
-        buffer.push_back( simd::float3{ p2.x,         p2.y, 0.f } );
-        buffer.push_back( simd::float3{ p2.x, p2.y + width, 0.f } );
-        buffer.push_back( simd::float3{ p1.x, p1.y + width, 0.f } );
-    }
-    // TODO
-    // else // tilted line
-    // {
-    //
-    // }
-    return buffer;
-}
-
-void Renderer::draw( MTK::View* pView )
-{
-    NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
-    process_keybord_inputs();
-
-    MTL::CommandBuffer* pCmdBuf = p_cmdQ->commandBuffer();
-    MTL::RenderPassDescriptor* pRPD = pView->currentRenderPassDescriptor();
-    MTL::RenderCommandEncoder* pEnc = pCmdBuf->renderCommandEncoder( pRPD );
-
-    // ----------------------- Game Board -----------------------------------------------------
-    pEnc->setRenderPipelineState( p_RPS );
-    pEnc->setVertexBuffer( p_boardVertices, 0, 0 );
-    pEnc->setVertexBuffer( p_boradColors, 0, 1 );
-    pEnc->drawIndexedPrimitives(
-        MTL::PrimitiveType::PrimitiveTypeTriangle,
-        NS::UInteger(6), // index count
-        MTL::IndexType::IndexTypeUInt16, // index type
-        p_boardIndices, // indices data
-        NS::UInteger(0) // index buffer offset
-    );
-
-    // -------------------------- Tiles Seperation Lines ---------------------------------------
-    pEnc->setRenderPipelineState( p_RPS );
-    pEnc->setVertexBuffer( p_lineVertices, 0, 0 );
-    pEnc->setVertexBuffer( p_lineColors, 0, 1 );
-    pEnc->drawPrimitives(
-        MTL::PrimitiveType::PrimitiveTypeTriangle,
-        NS::UInteger(0), // vertex start
-        NS::UInteger(24)  // vertex count
-    );
-
-
-    pEnc->endEncoding();
-    pCmdBuf->presentDrawable( pView->currentDrawable() );
-    pCmdBuf->commit();
-    pPool->release();
 }
