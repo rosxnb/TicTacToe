@@ -33,9 +33,9 @@ class Renderer
 
         static constexpr size_t kNumInstances = 9;
         static constexpr size_t kMaxFrames = 3;
-        static constexpr float tileWidth = 300.f;
-        static constexpr float tileHeight = 300.f;
         static constexpr float gutter = 25.f;
+        static constexpr float tileWidth = (window_width - 4.f * gutter) / 3.f;
+        static constexpr float tileHeight = (window_height - 4.f * gutter) / 3.f;
 
         MTL::Buffer* p_vertices = nullptr;
         MTL::Buffer* p_indices = nullptr;
@@ -46,11 +46,12 @@ class Renderer
         std::string m_shaderSrc;
         dispatch_semaphore_t m_semaphore;
 
+        int m_winner = 0;
+        std::array<int, kNumInstances> m_moves;
+
     private:
         constexpr float get_x_translate_value(uint tileNo) { return ( (float) tileNo * gutter + (float) (tileNo - 1) * tileWidth ); }
         constexpr float get_y_translate_value(uint tileNo) { return ( (float) tileNo * gutter + (float) (tileNo - 1) * tileHeight ); }
-
-        void process_keybord_inputs();
 };
 
 namespace shader_types
@@ -68,8 +69,8 @@ namespace shader_types
 
     struct InstanceData
     {
-        simd::float4x4 scale;
         simd::float4x4 translate;
+        int player;
     };
 
 }

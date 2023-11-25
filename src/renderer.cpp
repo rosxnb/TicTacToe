@@ -1,7 +1,6 @@
 #include "renderer.hpp"
 #include "math.hpp"
 #include "utility.hpp"
-#include "keys_code.h"
 
 Renderer::Renderer( MTL::Device* pDevice )
     : p_device( pDevice->retain() )
@@ -11,6 +10,9 @@ Renderer::Renderer( MTL::Device* pDevice )
     build_buffers();
 
     m_semaphore = dispatch_semaphore_create( Renderer::kMaxFrames );
+    m_moves.fill(0);
+    m_moves[3] = 1;
+    m_moves[5] = 2;
 }
 
 Renderer::~Renderer()
@@ -33,7 +35,7 @@ void Renderer::build_shaders()
 {
     using NS::StringEncoding::UTF8StringEncoding;
 
-    m_shaderSrc = Utility::read_file("shader/program.metal");
+    m_shaderSrc = utility::read_file("shader/program.metal");
 
     NS::Error* pError {nullptr};
     p_shaderLibrary = p_device->newLibrary( NS::String::string(m_shaderSrc.data(), UTF8StringEncoding), nullptr, &pError );
@@ -51,6 +53,11 @@ void Renderer::build_shaders()
     pRpd->setVertexFunction( fnVertex );
     pRpd->setFragmentFunction( fnFragment );
     pRpd->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
+    pRpd->colorAttachments()->object(0)->setBlendingEnabled(true);
+    pRpd->colorAttachments()->object(0)->setSourceRGBBlendFactor(MTL::BlendFactorSourceAlpha);
+    pRpd->colorAttachments()->object(0)->setDestinationRGBBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
+    pRpd->colorAttachments()->object(0)->setSourceAlphaBlendFactor(MTL::BlendFactorSourceAlpha);
+    pRpd->colorAttachments()->object(0)->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
 
     p_renderPipeline = p_device->newRenderPipelineState( pRpd, &pError );
     if ( !p_renderPipeline )
@@ -93,7 +100,7 @@ void Renderer::build_buffers()
     // allocate space for instances data
     for (size_t i = 0; i < Renderer::kMaxFrames; ++i)
     {
-        p_instances[i] = p_device->newBuffer( Renderer::kNumInstances * sizeof(shader_types::InstanceData), MTL::ResourceStorageModeManaged );
+        p_instances[i] = p_device->newBuffer( (Renderer::kNumInstances + 1) * sizeof(shader_types::InstanceData), MTL::ResourceStorageModeManaged );
     }
 
     // prepare projection matrix
@@ -105,8 +112,6 @@ void Renderer::build_buffers()
 
 void Renderer::draw( MTK::View* pView )
 {
-    process_keybord_inputs();
-
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
 
     m_frame = (m_frame + 1) % Renderer::kMaxFrames;
@@ -135,10 +140,19 @@ void Renderer::draw( MTK::View* pView )
 
         simd::float3 translateVec { get_x_translate_value(xTileNo), -get_y_translate_value(yTileNo) };
         curInstanceData[ i ].translate = math::make_translate( translateVec );
-
-        curInstanceData[ i ].scale = math::make_scale({1.f, 1.f, 1.f});
+        curInstanceData[ i ].player = m_moves[ i ];
 
         xTileNo++;
+    }
+
+    // handle selector tile
+    {
+        size_t idx = Renderer::kNumInstances; // last tile is selector tile at idx = 9
+
+        std::tie( xTileNo, yTileNo ) = utility::process_keyboard_inputs();
+        simd::float3 translateVec { get_x_translate_value(xTileNo), -get_y_translate_value(yTileNo) };
+        curInstanceData[ idx ].translate = math::make_translate( translateVec );
+        curInstanceData[ idx ].player = 0;
     }
 
     pCurInstanceBuffer->didModifyRange( NS::Range::Make(0, pCurInstanceBuffer->length()) );
@@ -150,6 +164,7 @@ void Renderer::draw( MTK::View* pView )
     pCmdEncoder->setVertexBuffer( p_vertices, 0, 0 );
     pCmdEncoder->setVertexBuffer( pCurInstanceBuffer, 0, 1 );
     pCmdEncoder->setVertexBuffer( p_projection, 0, 2 );
+    pCmdEncoder->setFragmentBytes( &m_winner, sizeof(m_winner), 0 );
 
     // void drawIndexedPrimitives( PrimitiveType primitiveType, NS::UInteger indexCount, IndexType indexType,
     //                             const class Buffer* pIndexBuffer, NS::UInteger indexBufferOffset, NS::UInteger instanceCount );
@@ -157,7 +172,7 @@ void Renderer::draw( MTK::View* pView )
                                         6, MTL::IndexType::IndexTypeUInt16,
                                         p_indices,
                                         0,
-                                        kNumInstances );
+                                        kNumInstances + 1 );
 
     pCmdEncoder->endEncoding();
     pCmdBuffer->presentDrawable( pView->currentDrawable() );
@@ -165,14 +180,3 @@ void Renderer::draw( MTK::View* pView )
     pPool->release();
 }
 
-void Renderer::process_keybord_inputs()
-{
-    if (checkKeyPress( KeysCode::W ))
-        __builtin_printf("Key W \n");
-    if (checkKeyPress( KeysCode::S ))
-        __builtin_printf("Key S \n");
-    if (checkKeyPress( KeysCode::D ))
-        __builtin_printf("Key D \n");
-    if (checkKeyPress( KeysCode::A ))
-        __builtin_printf("Key A \n");
-}
