@@ -49,9 +49,19 @@ class Renderer
         int m_winner = 0;
         std::array<int, kNumInstances> m_moves;
 
+        double h_curr_row = 1;
+        double h_curr_col = 1;
+
+        int m_player = 1;
+
     private:
         constexpr float get_x_translate_value(uint tileNo) { return ( (float) tileNo * gutter + (float) (tileNo - 1) * tileWidth ); }
         constexpr float get_y_translate_value(uint tileNo) { return ( (float) tileNo * gutter + (float) (tileNo - 1) * tileHeight ); }
+
+        std::pair<size_t, size_t> process_keyboard_input();
+        size_t get_selected_tile();
+        bool tictactoe_terminal_state() const;
+        bool tictactoe_has_winner() const;
 };
 
 namespace shader_types

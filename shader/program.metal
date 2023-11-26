@@ -24,7 +24,7 @@ struct InstanceData
 };
 
 static constant half4 colors[] = {
-    { .9f, .9f, .9f, 1.f }, // empty tile: white
+    { .5f, .5f, .5f, 1.f }, // empty tile: white
     { 0.f, 0.f, 1.f, 1.f }, // player 1: blue
     { 1.f, 0.f, 0.f, 1.f }  // player 2: red
 };

@@ -1,6 +1,8 @@
 #include "renderer.hpp"
 #include "math.hpp"
 #include "utility.hpp"
+#include "keys_code.h"
+#include <algorithm>
 
 Renderer::Renderer( MTL::Device* pDevice )
     : p_device( pDevice->retain() )
@@ -11,8 +13,6 @@ Renderer::Renderer( MTL::Device* pDevice )
 
     m_semaphore = dispatch_semaphore_create( Renderer::kMaxFrames );
     m_moves.fill(0);
-    m_moves[3] = 1;
-    m_moves[5] = 2;
 }
 
 Renderer::~Renderer()
@@ -112,6 +112,20 @@ void Renderer::build_buffers()
 
 void Renderer::draw( MTK::View* pView )
 {
+    if (checkKeyPress(KeysCode::ReturnOrEnter))
+    {
+        size_t selected_tile = get_selected_tile();
+
+        if (m_moves[selected_tile] == 0)
+        {
+            m_moves[selected_tile] = m_player;
+            m_player = m_player == 1 ? 2 : 1;
+        }
+
+        if ( tictactoe_has_winner() )
+            m_winner = m_player == 1 ? 2 : 1;
+    }
+
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
 
     m_frame = (m_frame + 1) % Renderer::kMaxFrames;
@@ -149,7 +163,7 @@ void Renderer::draw( MTK::View* pView )
     {
         size_t idx = Renderer::kNumInstances; // last tile is selector tile at idx = 9
 
-        std::tie( xTileNo, yTileNo ) = utility::process_keyboard_inputs();
+        std::tie(xTileNo, yTileNo) = process_keyboard_input();
         simd::float3 translateVec { get_x_translate_value(xTileNo), -get_y_translate_value(yTileNo) };
         curInstanceData[ idx ].translate = math::make_translate( translateVec );
         curInstanceData[ idx ].player = 0;
@@ -180,3 +194,109 @@ void Renderer::draw( MTK::View* pView )
     pPool->release();
 }
 
+std::pair<size_t, size_t> Renderer::process_keyboard_input()
+{
+    bool go_up     = checkKeyPress(KeysCode::W) || checkKeyPress(KeysCode::K) || checkKeyPress(KeysCode::UpArrow);
+    bool go_left   = checkKeyPress(KeysCode::A) || checkKeyPress(KeysCode::H) || checkKeyPress(KeysCode::LeftArrow);
+    bool go_down   = checkKeyPress(KeysCode::S) || checkKeyPress(KeysCode::J) || checkKeyPress(KeysCode::DownArrow);
+    bool go_right  = checkKeyPress(KeysCode::D) || checkKeyPress(KeysCode::L) || checkKeyPress(KeysCode::RightArrow);
+
+    if        (go_up)      h_curr_row -= 0.19; /*, __builtin_printf("up \n"); */
+    else if   (go_down)    h_curr_row += 0.19; /*, __builtin_printf("down \n"); */
+    else if   (go_right)   h_curr_col += 0.19; /*, __builtin_printf("right \n"); */
+    else if   (go_left)    h_curr_col -= 0.19; /*, __builtin_printf("left \n"); */
+
+    if (h_curr_col >= 4.)       h_curr_col = 1.;
+    else if (h_curr_col < 1.f)  h_curr_col = 3.8;
+
+    if (h_curr_row >= 4.)       h_curr_row = 1.;
+    else if (h_curr_row < 1.)   h_curr_row = 3.8;
+
+    return { static_cast<size_t>(h_curr_col), static_cast<size_t>(h_curr_row) };
+}
+
+size_t Renderer::get_selected_tile()
+{
+    size_t row = static_cast< size_t >( h_curr_row );
+    size_t col = static_cast< size_t >( h_curr_col );
+    size_t idx = 3 * (row - 1) + (col - 1);
+
+    // __builtin_printf("selected tile: %ld \n", idx);
+
+    return idx;
+}
+
+bool Renderer::tictactoe_has_winner() const
+{
+    if (    std::all_of(m_moves.begin(), m_moves.begin() + 3, [](int tile) { return tile == 1; })
+         || std::all_of(m_moves.begin(), m_moves.begin() + 3, [](int tile) { return tile == 2; }) )
+        return true;
+
+    if (    std::all_of(m_moves.begin() + 3, m_moves.begin() + 6, [](int tile) { return tile == 1; })
+         || std::all_of(m_moves.begin() + 3, m_moves.begin() + 6, [](int tile) { return tile == 2; }) )
+        return true;
+
+    if (    std::all_of(m_moves.begin() + 6, m_moves.end(), [](int tile) { return tile == 1; })
+         || std::all_of(m_moves.begin() + 6, m_moves.end(), [](int tile) { return tile == 2; }) )
+        return true;
+
+    if (    (m_moves[0] == 1 && m_moves[3] == 1 && m_moves[6] == 1)
+         || (m_moves[0] == 2 && m_moves[3] == 2 && m_moves[6] == 2) )
+        return true;
+
+    if (    (m_moves[1] == 1 && m_moves[4] == 1 && m_moves[7] == 1)
+         || (m_moves[1] == 2 && m_moves[4] == 2 && m_moves[7] == 2) )
+        return true;
+
+    if (    (m_moves[2] == 1 && m_moves[5] == 1 && m_moves[8] == 1)
+         || (m_moves[2] == 2 && m_moves[5] == 2 && m_moves[8] == 2) )
+        return true;
+
+    if (    (m_moves[0] == 1 && m_moves[4] == 1 && m_moves[8] == 1)
+         || (m_moves[0] == 2 && m_moves[4] == 2 && m_moves[8] == 2) )
+        return true;
+
+    if (    (m_moves[2] == 1 && m_moves[4] == 1 && m_moves[6] == 1)
+         || (m_moves[2] == 2 && m_moves[4] == 2 && m_moves[6] == 2) )
+        return true;
+
+    return false;
+}
+
+bool Renderer::tictactoe_terminal_state() const
+{
+    if ( tictactoe_has_winner() ) return true;
+
+    for (int tile: m_moves)
+        if (tile == 0) return false;
+
+    return true;
+}
+
+
+// std::pair<size_t, size_t> Renderer::process_keyboard_input()
+// {
+//     bool go_up     = checkKeyPress(KeysCode::W) || checkKeyPress(KeysCode::K) || checkKeyPress(KeysCode::UpArrow);
+//     bool go_left   = checkKeyPress(KeysCode::A) || checkKeyPress(KeysCode::H) || checkKeyPress(KeysCode::LeftArrow);
+//     bool go_down   = checkKeyPress(KeysCode::S) || checkKeyPress(KeysCode::J) || checkKeyPress(KeysCode::DownArrow);
+//     bool go_right  = checkKeyPress(KeysCode::D) || checkKeyPress(KeysCode::L) || checkKeyPress(KeysCode::RightArrow);
+//
+//     if        (go_up)      h_curr_row--, __builtin_printf("up \n");
+//     else if   (go_down)    h_curr_row++, __builtin_printf("down \n");
+//     else if   (go_right)   h_curr_col++, __builtin_printf("right \n");
+//     else if   (go_left)    h_curr_col--, __builtin_printf("left \n");
+//
+//
+//     if (h_curr_col > 3)
+//     {
+//         h_curr_col = 1;
+//         h_curr_row++;
+//     }
+//     else if (h_curr_col < 1) h_curr_col = 1;
+//
+//     if (h_curr_row > 3 || h_curr_row < 1) {
+//         h_curr_row = 1;
+//     }
+//
+//     return { h_curr_col, h_curr_row };
+// }

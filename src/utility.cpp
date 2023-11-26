@@ -1,5 +1,4 @@
 #include "utility.hpp"
-#include "keys_code.h"
 #include <fstream>
 #include <sstream>
 
@@ -24,17 +23,4 @@ std::string utility::read_file( std::string_view fileLocation )
     }
 
     return buffer;
-}
-
-std::pair<size_t, size_t> utility::process_keyboard_inputs()
-{
-    // if (checkKeyPress( KeysCode::W ))
-    //     __builtin_printf("Key W \n");
-    // if (checkKeyPress( KeysCode::S ))
-    //     __builtin_printf("Key S \n");
-    // if (checkKeyPress( KeysCode::D ))
-    //     __builtin_printf("Key D \n");
-    // if (checkKeyPress( KeysCode::A ))
-    //     __builtin_printf("Key A \n");
-    return { 2, 2 };
 }
