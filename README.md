@@ -1,4 +1,6 @@
 Building TicTacToe game with MetalCpp for macOS.
+Right now the game can be executed only on MacOS.
+I want to extend support for Windows whenever I have enough free time from completing other projects.
 
 
 ## Run the app
